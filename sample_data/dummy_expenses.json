@@ -1,0 +1,10 @@
+[
+    {
+      "user_id": null,
+      "amount": 50.0,
+      "category": "Food",
+      "date": "2025-04-15T12:30:00Z",
+      "description": "Lunch",
+      "group_id": null
+    }
+  ]
