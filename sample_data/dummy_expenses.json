@@ -1,10 +1,24 @@
 [
     {
-      "user_id": null,
-      "amount": 50.0,
+      "username": "arjun",
+      "amount": 12.50,
       "category": "Food",
-      "date": "2025-04-15T12:30:00Z",
-      "description": "Lunch",
-      "group_id": null
+      "date": "2025-04-15T18:30:00Z",
+      "description": "Lunch sandwich"
+    },
+    {
+      "username": "arjun",
+      "amount": 45.00,
+      "category": "Transport",
+      "date": "2025-04-14T08:00:00Z",
+      "description": "Monthly metro pass"
+    },
+    {
+      "username": "aditya",
+      "amount": 120.00,
+      "category": "Groceries",
+      "date": "2025-04-13T17:45:00Z",
+      "description": "Weekly groceries"
     }
   ]
+  

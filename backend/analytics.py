@@ -5,11 +5,32 @@ def monthly_summary(user_id):
     pipeline = [
         {'$match': {'user_id': ObjectId(user_id)}},
         {'$group': {
-            '_id': {'year': {'$year': '$date'}, 'month': {'$month': '$date'}},
+            '_id': {'year': {'$year': {'$toDate': '$date'}},
+                    'month': {'$month': {'$toDate': '$date'}}},
             'total': {'$sum': '$amount'}
         }},
         {'$sort': {'_id.year': 1, '_id.month': 1}}
     ]
     return list(expenses_col.aggregate(pipeline))
 
-# Similar functions for yearly_summary, category_trend, etc.
+def yearly_summary(user_id):
+    pipeline = [
+        {'$match': {'user_id': ObjectId(user_id)}},
+        {'$group': {
+            '_id': {'year': {'$year': {'$toDate': '$date'}}},
+            'total': {'$sum': '$amount'}
+        }},
+        {'$sort': {'_id.year': 1}}
+    ]
+    return list(expenses_col.aggregate(pipeline))
+
+def category_trend(user_id):
+    pipeline = [
+        {'$match': {'user_id': ObjectId(user_id)}},
+        {'$group': {
+            '_id': {'category': '$category'},
+            'total': {'$sum': '$amount'}
+        }},
+        {'$sort': {'total': -1}}
+    ]
+    return list(expenses_col.aggregate(pipeline))
