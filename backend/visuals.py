@@ -4,31 +4,25 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import pandas as pd
 
-def plot_category(data):
+def plot_monthly(data):
     """
-    Bar chart of total spending per category.
-    Args:
-      data: list of dicts or DataFrame with columns ['_id', 'total'].
-    Returns:
-      BytesIO PNG buffer.
+    Line chart of total spending per month.
     """
-    # Normalize to DataFrame
     df = pd.DataFrame(data) if isinstance(data, list) else data.copy()
+    df['period'] = df['_id'].apply(
+        lambda x: f"{x['year']}-{int(x['month']):02d}" if isinstance(x, dict) else str(x)
+    )
+    df = df.sort_values('period')
 
-    # Unwrap dict _id if needed
-    if '_id' in df.columns and df['_id'].apply(lambda x: isinstance(x, dict)).any():
-        df['_id'] = df['_id'].apply(lambda x: next(iter(x.values())) if isinstance(x, dict) else x)
-
-    # Plot
     fig, ax = plt.subplots()
-    ax.bar(df['_id'], df['total'])
-    ax.set_xlabel('Category')
+    ax.plot(df['period'], df['total'], marker='o', label='Total')
+    ax.set_xlabel('Month')
     ax.set_ylabel('Total Spent')
-    ax.set_title('Spending by Category')
+    ax.set_title('Monthly Spending Trend')
+    ax.legend()
     plt.xticks(rotation=45, ha='right')
     fig.tight_layout()
 
-    # Buffer
     buf = BytesIO()
     fig.savefig(buf, format='png')
     buf.seek(0)
@@ -36,39 +30,58 @@ def plot_category(data):
     return buf
 
 
-def plot_monthly(data):
+def plot_yearly(data):
     """
-    Line chart of total spending over time periods (e.g., monthly).
-    Args:
-      data: list of dicts or DataFrame with columns ['_id', 'total'], where '_id'
-            may be a dict like {'year':2025,'month':4} or a simple label.
-    Returns:
-      BytesIO PNG buffer.
+    Bar chart of total spending per year.
     """
-    # Normalize
     df = pd.DataFrame(data) if isinstance(data, list) else data.copy()
+    df['year'] = df['_id'].apply(lambda x: x['year'] if isinstance(x, dict) else x)
+    df = df.sort_values('year')
 
-    # Build a string label for each period
-    if '_id' in df.columns and df['_id'].apply(lambda x: isinstance(x, dict)).any():
-        df['period'] = df['_id'].apply(
-            lambda x: f"{x.get('year')}-{int(x.get('month')):02d}"
-        )
-    else:
-        df['period'] = df['_id'].astype(str)
-
-    # Sort by period lexicographically (YYYY-MM works)
-    df = df.sort_values('period')
-
-    # Plot
     fig, ax = plt.subplots()
-    ax.plot(df['period'], df['total'], marker='o')
-    ax.set_xlabel('Period')
+    ax.bar(df['year'].astype(str), df['total'], label='Total')
+    ax.set_xlabel('Year')
     ax.set_ylabel('Total Spent')
-    ax.set_title('Spending Trend Over Time')
+    ax.set_title('Yearly Spending')
+    ax.legend()
     plt.xticks(rotation=45, ha='right')
     fig.tight_layout()
 
-    # Buffer
+    buf = BytesIO()
+    fig.savefig(buf, format='png')
+    buf.seek(0)
+    plt.close(fig)
+    return buf
+
+
+def plot_category(data):
+    """
+    Pie chart of spending by category.
+    """
+    df = pd.DataFrame(data) if isinstance(data, list) else data.copy()
+    df['category'] = df['_id'].apply(
+        lambda x: x['category'] if isinstance(x, dict) else x
+    )
+    labels = df['category']
+    sizes  = df['total']
+
+    fig, ax = plt.subplots()
+    wedges, texts, autotexts = ax.pie(
+        sizes,
+        autopct='%1.1f%%',
+        startangle=90
+    )
+    ax.set_title('Spending by Category')
+    ax.axis('equal')
+    ax.legend(
+        wedges,
+        labels,
+        title='Category',
+        loc='center left',
+        bbox_to_anchor=(1, 0.5)
+    )
+    fig.tight_layout()
+
     buf = BytesIO()
     fig.savefig(buf, format='png')
     buf.seek(0)

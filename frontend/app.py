@@ -11,6 +11,7 @@ if str(project_root) not in sys.path:
 from backend.auth import register, login
 from backend.expenses import add_expense, fetch_expenses
 from backend.analytics import monthly_summary, yearly_summary, category_trend
+from backend.visuals import plot_monthly, plot_yearly, plot_category
 from backend.group import (
     list_user_groups,
     create_group,
@@ -71,12 +72,19 @@ else:
 
     elif page == 'Analytics':
         st.header('Analytics')
-        st.subheader('Monthly Summary')
-        st.image(plot_monthly(monthly_summary(user_id)))
-        st.subheader('Yearly Summary (raw data)')
-        st.json(yearly_summary(user_id))
+
+        st.subheader('Monthly Spending Trend')
+        monthly_data = monthly_summary(user_id)
+        st.image(plot_monthly(monthly_data))
+
+        st.subheader('Yearly Spending')
+        yearly_data = yearly_summary(user_id)
+        st.image(plot_yearly(yearly_data))
+
         st.subheader('Spending by Category')
-        st.image(plot_category(category_trend(user_id)))
+        category_data = category_trend(user_id)
+        st.image(plot_category(category_data))
+
 
     elif page == 'Groups':
         st.header('Group Management')
