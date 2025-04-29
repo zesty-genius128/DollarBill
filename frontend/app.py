@@ -11,7 +11,6 @@ if str(project_root) not in sys.path:
 from backend.auth import register, login
 from backend.expenses import add_expense, fetch_expenses
 from backend.analytics import monthly_summary, yearly_summary, category_trend
-from backend.visuals import plot_monthly, plot_yearly, plot_category
 from backend.group import (
     list_user_groups,
     create_group,
@@ -20,7 +19,72 @@ from backend.group import (
 )
 from backend.visuals import plot_monthly, plot_category
 
-st.set_page_config(page_title='Dollar Bill Tracker')
+st.set_page_config(page_title='Dollar Bill Tracker', layout="wide")
+
+# ─── Custom CSS ──────────────────────────────────────────
+st.markdown(
+    """
+    <style>
+    .main .block-container{
+        max-width: 90%;
+        margin: 0 auto;
+        padding: 1.5rem;
+        background-color: #f0f8ff;
+    }
+    /* Remove default Streamlit padding */
+    .main {
+        padding-top: 1rem;
+    }
+    /* Remove extra padding from the content area */
+    .stTabs [data-baseweb="tab-panel"] {
+        padding-top: 1rem;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    div.stButton > button {
+        background-color: #1E90FF;
+        color: white;
+        padding: 0.8em 1.2em;
+        border: none;
+        border-radius: 0.3em;
+        font-size: 1em;
+        transition: background-color 0.3s ease;
+    }
+    div.stButton > button:hover {
+        background-color: #0066CC;
+    }
+    /* Streamlit tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0;
+        width: 100%;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 60px;
+        flex: 1;
+        min-width: 150px;
+        font-size: 16px;
+        white-space: pre-wrap;
+        background-color: white;
+        border-radius: 0;
+        border-bottom: 1px solid #e0e0e0;
+        padding: 15px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #1E90FF !important;
+        color: white !important;
+        border-bottom: none !important;
+    }
+    /* Make tabs container full width */
+    .stTabs {
+        width: 100%;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # ─── Authentication ───────────────────────────────────────────────────────────
 if 'user_id' not in st.session_state:
@@ -28,7 +92,7 @@ if 'user_id' not in st.session_state:
     st.session_state.username  = None
 
 if not st.session_state.user_id:
-    st.title('Welcome to Dollar Bill')
+    st.markdown("<h1 style='text-align: center; color: #1E90FF;'>Welcome to Dollar Bill</h1>", unsafe_allow_html=True)
     mode     = st.selectbox('Mode', ['Login', 'Register'])
     username = st.text_input('Username')
     password = st.text_input('Password', type='password')
@@ -43,20 +107,38 @@ if not st.session_state.user_id:
     # No st.stop() or experimental_rerun(): Streamlit will rerun automatically
 else:
     # ─── Main App ───────────────────────────────────────────────────────────────
-    st.sidebar.title('Navigation')
-    page    = st.sidebar.radio('', ['Dashboard', 'Expenses', 'Analytics', 'Groups', 'Logout'])
+    # Get user info from session state
     user_id = st.session_state.user_id
     username = st.session_state.username
-
-    if page == 'Logout':
-        if st.sidebar.button('Confirm Logout'):
-            st.session_state.clear()
-
-    elif page == 'Dashboard':
+    
+    # Create tabs for navigation
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(['Dashboard', 'Expenses', 'Analytics', 'Groups', 'Logout'])
+    
+    # Dashboard tab content
+    with tab1:
         st.title('Dashboard')
-        st.write(f"Hello, **{username}**! What would you like to do today?")
-
-    elif page == 'Expenses':
+        #st.write(f"Hello, **{username}**! What would you like to do today?")
+        user_groups = list_user_groups(user_id)
+        if user_groups:
+            st.subheader('Your Groups')
+            group_sel = st.selectbox('Select a group', user_groups)
+            if st.button('Compute Balances'):
+                bal = compute_group_balances(group_sel)
+                st.subheader(f"Balances for {group_sel}")
+                # Display balances in a cleaner format
+                st.markdown("### Balance Summary")
+                for person, amount in bal.items():
+                    if amount > 0:
+                        st.markdown(f"**{person}** should receive **${amount:.2f}**")
+                    elif amount < 0:
+                        st.markdown(f"**{person}** owes **${abs(amount):.2f}**")
+                    else:
+                        st.markdown(f"**{person}** is settled (no payment needed)")
+        else:
+            st.info("You're not in any groups yet.")
+    
+    # Expenses tab content
+    with tab2:
         st.header('Add Individual Expense')
         amt  = st.number_input('Amount', min_value=0.0, step=0.01)
         cat  = st.text_input('Category')
@@ -70,36 +152,22 @@ else:
         for e in fetch_expenses(user_id):
             st.write(f"{e['date'].date()}: {e['category']} - ${e['amount']}")
 
-    elif page == 'Analytics':
+    # Analytics tab content
+    with tab3:
         st.header('Analytics')
-
-        st.subheader('Monthly Spending Trend')
-        monthly_data = monthly_summary(user_id)
-        st.image(plot_monthly(monthly_data))
-
-        st.subheader('Yearly Spending')
-        yearly_data = yearly_summary(user_id)
-        st.image(plot_yearly(yearly_data))
-
+        st.subheader('Monthly Summary')
+        st.image(plot_monthly(monthly_summary(user_id)))
+        #st.subheader('Yearly Summary (raw data)')
+        #st.json(yearly_summary(user_id))
         st.subheader('Spending by Category')
-        category_data = category_trend(user_id)
-        st.image(plot_category(category_data))
+        st.image(plot_category(category_trend(user_id)))
 
-
-    elif page == 'Groups':
+    # Groups tab content
+    with tab4:
         st.header('Group Management')
 
         # 1) Show groups you belong to
-        user_groups = list_user_groups(user_id)
-        if user_groups:
-            st.subheader('Your Groups')
-            group_sel = st.selectbox('Select a group', user_groups)
-            if st.button('Compute Balances'):
-                bal = compute_group_balances(group_sel)
-                st.subheader(f"Balances for “{group_sel}”")
-                st.json(bal)
-        else:
-            st.info("You’re not in any groups yet.")
+        
 
         # 2) Create a new group by username
         st.subheader('Create New Group')
@@ -109,7 +177,7 @@ else:
             member_usernames = [u.strip() for u in new_members.split(',') if u.strip()]
             try:
                 create_group(new_name, member_usernames)
-                st.success(f"Group “{new_name}” created")
+                st.success(f"Group {new_name} created")
             except Exception as e:
                 st.error(str(e))
 
@@ -134,3 +202,8 @@ else:
                     st.success('Group expense added')
                 except Exception as e:
                     st.error(str(e))
+
+    # Logout tab content
+    with tab5:
+        if st.button('Confirm Logout', key='confirm_logout'):
+            st.session_state.clear()
