@@ -60,7 +60,7 @@ def plot_category(data):
     """
     df = pd.DataFrame(data) if isinstance(data, list) else data.copy()
     df['category'] = df['_id'].apply(
-        lambda x: x['category'] if isinstance(x, dict) else x
+        lambda x: x if not isinstance(x, dict) else str(x)
     )
     labels = df['category']
     sizes  = df['total']
