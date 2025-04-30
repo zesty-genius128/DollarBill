@@ -9,7 +9,7 @@ if str(project_root) not in sys.path:
 # ──────────────────────────────────────────────────────────────────────────────
 
 from backend.auth import register, login
-from backend.expenses import add_expense, fetch_expenses
+from backend.expenses import add_expense, fetch_expenses, update_expense, delete_expense
 from backend.analytics import monthly_summary, yearly_summary, category_trend
 from backend.group import (
     list_user_groups,
@@ -17,7 +17,7 @@ from backend.group import (
     add_group_expense,
     compute_group_balances
 )
-from backend.visuals import plot_monthly, plot_category
+from backend.visuals import plot_monthly, plot_category, plot_yearly
 
 st.set_page_config(page_title='Dollar Bill Tracker', layout="wide")
 
@@ -102,6 +102,7 @@ if not st.session_state.user_id:
             st.session_state.user_id  = msg
             st.session_state.username = username
             st.success(f"Logged in as {username}")
+            st.rerun()  # Force rerun to update the UI immediately
         else:
             st.error(msg)
     # No st.stop() or experimental_rerun(): Streamlit will rerun automatically
@@ -139,28 +140,152 @@ else:
     
     # Expenses tab content
     with tab2:
-        st.header('Add Individual Expense')
-        amt  = st.number_input('Amount', min_value=0.0, step=0.01)
-        cat  = st.text_input('Category')
-        date = st.date_input('Date')
-        desc = st.text_input('Description')
-        if st.button('Add Expense'):
-            add_expense(user_id, amt, cat, date.isoformat(), desc)
-            st.success('Expense added')
-
-        st.subheader('Your Expenses')
-        for e in fetch_expenses(user_id):
-            st.write(f"{e['date'].date()}: {e['category']} - ${e['amount']}")
+        # Create tabs for expense actions
+        expense_tab1, expense_tab2, expense_tab3 = st.tabs(["Add Expense", "View/Edit Expenses", "Delete Expense"])
+        
+        # Add expense tab
+        with expense_tab1:
+            st.header('Add New Expense')
+            amt  = st.number_input('Amount', min_value=0.0, step=0.01, key='new_amt')
+            cat  = st.text_input('Category', key='new_cat')
+            date = st.date_input('Date', key='new_date')
+            desc = st.text_input('Description', key='new_desc')
+            if st.button('Add Expense', key='add_btn'):
+                add_expense(user_id, amt, cat, date.isoformat(), desc)
+                st.success('Expense added successfully!')
+        
+        # View and update expenses tab
+        with expense_tab2:
+            st.header('View and Update Expenses')
+            
+            # Fetch and display expenses
+            expenses = fetch_expenses(user_id)
+            
+            if not expenses:
+                st.info("You don't have any expenses yet.")
+            else:
+                # Create a selection box for expenses
+                expense_options = [f"{e['date'].date()} - {e['category']} - ${e['amount']:.2f} - {e['description']}" for e in expenses]
+                selected_expense_idx = st.selectbox("Select an expense to edit:", 
+                                                   range(len(expense_options)), 
+                                                   format_func=lambda x: expense_options[x])
+                
+                # Get the selected expense
+                selected_expense = expenses[selected_expense_idx]
+                
+                # Create form for updating
+                st.subheader("Update Expense")
+                updated_amt = st.number_input('New Amount', 
+                                           min_value=0.0, 
+                                           step=0.01, 
+                                           value=float(selected_expense['amount']),
+                                           key='update_amt')
+                updated_cat = st.text_input('New Category', 
+                                         value=selected_expense['category'], 
+                                         key='update_cat')
+                updated_date = st.date_input('New Date', 
+                                          value=selected_expense['date'].date(),
+                                          key='update_date')
+                updated_desc = st.text_input('New Description', 
+                                          value=selected_expense['description'], 
+                                          key='update_desc')
+                
+                if st.button('Update Expense', key='update_btn'):
+                    # Convert ObjectId to string for the expense_id
+                    expense_id = str(selected_expense['_id'])
+                    
+                    # Call update function
+                    update_expense(
+                        expense_id,
+                        user_id,
+                        amount=updated_amt,
+                        category=updated_cat,
+                        date_str=updated_date.isoformat(),
+                        description=updated_desc
+                    )
+                    st.success("Expense updated successfully!")
+                    st.rerun()  # Refresh to show updated data
+        
+        # Delete expense tab
+        with expense_tab3:
+            st.header('Delete Expense')
+            
+            # Fetch and display expenses for deletion
+            expenses = fetch_expenses(user_id)
+            
+            if not expenses:
+                st.info("You don't have any expenses to delete.")
+            else:
+                # Create a selection box for expenses
+                expense_options = [f"{e['date'].date()} - {e['category']} - ${e['amount']:.2f} - {e['description']}" for e in expenses]
+                delete_expense_idx = st.selectbox("Select an expense to delete:", 
+                                                 range(len(expense_options)), 
+                                                 format_func=lambda x: expense_options[x],
+                                                 key='delete_select')
+                
+                # Get the selected expense
+                expense_to_delete = expenses[delete_expense_idx]
+                
+                # Show expense details for confirmation
+                st.markdown(f"""
+                **You are about to delete this expense:**
+                - Date: {expense_to_delete['date'].date()}
+                - Category: {expense_to_delete['category']}
+                - Amount: ${expense_to_delete['amount']:.2f}
+                - Description: {expense_to_delete['description']}
+                """)
+                
+                if st.button('Delete This Expense', key='delete_btn'):
+                    # Convert ObjectId to string for the expense_id
+                    expense_id = str(expense_to_delete['_id'])
+                    
+                    # Call delete function
+                    delete_expense(expense_id, user_id)
+                    st.success("Expense deleted successfully!")
+                    st.rerun()  # Refresh to show updated data
 
     # Analytics tab content
     with tab3:
         st.header('Analytics')
+        
+        # Monthly Summary
         st.subheader('Monthly Summary')
-        st.image(plot_monthly(monthly_summary(user_id)))
-        #st.subheader('Yearly Summary (raw data)')
-        #st.json(yearly_summary(user_id))
+        try:
+            monthly_data = monthly_summary(user_id)
+            if monthly_data and len(monthly_data) > 0:
+                monthly_img = plot_monthly(monthly_data)
+                st.image(monthly_img)
+            else:
+                st.info("No monthly data available yet. Add some expenses to see your monthly summary.")
+        except Exception as e:
+            st.error(f"Error displaying monthly chart: {str(e)}")
+            st.info("Try adding more expense data to generate monthly charts.")
+        
+        # Yearly Summary
+        st.subheader('Yearly Summary')
+        try:
+            yearly_data = yearly_summary(user_id)
+            if yearly_data and len(yearly_data) > 0:
+                yearly_img = plot_yearly(yearly_data)
+                st.image(yearly_img)
+            else:
+                st.info("No yearly data available yet. Add some expenses to see your yearly summary.")
+        except Exception as e:
+            st.error(f"Error displaying yearly chart: {str(e)}")
+            st.info("Try adding more expense data with different years to generate yearly charts.")
+        
+        # Category Breakdown
         st.subheader('Spending by Category')
-        st.image(plot_category(category_trend(user_id)))
+        try:
+            category_data = category_trend(user_id)
+            if category_data and len(category_data) > 0:
+                category_img = plot_category(category_data)
+                st.image(category_img)
+            else:
+                st.info("No category data available yet. Add expenses with categories to see this breakdown.")
+        except Exception as e:
+            st.error(f"Error displaying category chart: {str(e)}")
+            st.info("Try adding more expense data with different categories to generate category charts.")
 
     # Groups tab content
     with tab4:
@@ -207,3 +332,4 @@ else:
     with tab5:
         if st.button('Confirm Logout', key='confirm_logout'):
             st.session_state.clear()
+            st.rerun()  # Force rerun to update the UI immediately
