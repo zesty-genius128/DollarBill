@@ -102,6 +102,7 @@ if not st.session_state.user_id:
             st.session_state.user_id  = msg
             st.session_state.username = username
             st.success(f"Logged in as {username}")
+            st.rerun()  # Force rerun to update the UI immediately
         else:
             st.error(msg)
     # No st.stop() or experimental_rerun(): Streamlit will rerun automatically
@@ -203,7 +204,7 @@ else:
                         description=updated_desc
                     )
                     st.success("Expense updated successfully!")
-                    st.experimental_rerun()  # Refresh to show updated data
+                    st.rerun()  # Refresh to show updated data
         
         # Delete expense tab
         with expense_tab3:
@@ -241,7 +242,7 @@ else:
                     # Call delete function
                     delete_expense(expense_id, user_id)
                     st.success("Expense deleted successfully!")
-                    st.experimental_rerun()  # Refresh to show updated data
+                    st.rerun()  # Refresh to show updated data
 
     # Analytics tab content
     with tab3:
@@ -331,3 +332,4 @@ else:
     with tab5:
         if st.button('Confirm Logout', key='confirm_logout'):
             st.session_state.clear()
+            st.rerun()  # Force rerun to update the UI immediately
